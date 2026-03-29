@@ -8,7 +8,7 @@
  */
 
 import type { RequestHandler } from 'express';
-import { MCP_RESOURCE_IDENTIFIER, SUPABASE_ISSUER } from './config.ts';
+import { MCP_RESOURCE_IDENTIFIER, getSupabaseIssuer } from './config.js';
 
 /**
  * Protected Resource Metadata per RFC 9728 Section 3.
@@ -40,7 +40,7 @@ export interface ProtectedResourceMetadata {
 export const protectedResourceMetadataHandler: RequestHandler = (_req, res) => {
   const metadata: ProtectedResourceMetadata = {
     resource: MCP_RESOURCE_IDENTIFIER,
-    authorization_servers: [SUPABASE_ISSUER],
+    authorization_servers: [getSupabaseIssuer()],
     bearer_methods_supported: ['header'],
   };
 

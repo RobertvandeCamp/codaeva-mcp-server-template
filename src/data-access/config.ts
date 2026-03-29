@@ -3,11 +3,11 @@ import { z } from 'zod';
 // SUPABASE_ANON_KEY is the Supabase anon/public key (safe to expose, RLS enforced).
 // Used as the base key for Supabase clients. Per-user JWT tokens override the auth context.
 // SUPABASE_SERVICE_KEY is optional -- only needed for dev mode (bypasses RLS).
+// LOG_LEVEL is validated in src/config.ts -- not duplicated here
 const envSchema = z.object({
   SUPABASE_URL: z.string().url(),
   SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_KEY: z.string().optional(),
-  LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal']).default('info'),
 });
 
 export type Config = z.infer<typeof envSchema>;

@@ -58,19 +58,25 @@ export const getServer = () => {
   });
 
   // Register tools
-  server.registerTool(
-    getMyInfoTool.name,
-    {
-      title: getMyInfoTool.title,
-      description: getMyInfoTool.description,
-      inputSchema: getMyInfoTool.inputSchema,
-      annotations: getMyInfoTool.annotations,
-    },
-    handleGetMyInfo,
-  );
+  const tools = [
+    { def: getMyInfoTool, handler: handleGetMyInfo },
+  ];
+
+  for (const { def, handler } of tools) {
+    server.registerTool(
+      def.name,
+      {
+        title: def.title,
+        description: def.description,
+        inputSchema: def.inputSchema,
+        annotations: def.annotations,
+      },
+      handler,
+    );
+  }
 
   logger.info(
-    { toolCount: 1, resourceCount: resources.length },
+    { toolCount: tools.length, resourceCount: resources.length },
     "Tools and resources registered",
   );
 
@@ -80,10 +86,11 @@ export const getServer = () => {
 export const createApp = () => {
   const app = express();
 
-  // CORS configuration for browser-based clients (MCP Inspector, web apps)
+  // CORS: Allow all origins. This is intentional for MCP servers -- clients like
+  // MCP Inspector, Claude Desktop, and custom web apps connect from various origins.
   app.use(cors({
-    origin: true, // Allow all origins (or specify allowed origins)
-    methods: ['GET', 'POST', 'OPTIONS'],
+    origin: true,
+    methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'mcp-session-id'],
     exposedHeaders: ['mcp-session-id'],
     credentials: true,
@@ -106,11 +113,11 @@ export const createApp = () => {
       : 'ENABLED';
   logger.info({ authMode }, 'Auth middleware configured');
 
-  const transports: { [sessionId: string]: StreamableHTTPServerTransport } = {};
+  const transports = new Map<string, StreamableHTTPServerTransport>();
 
   const mcpHandler = async (req: express.Request, res: express.Response) => {
     const sessionId = req.headers["mcp-session-id"] as string | undefined;
-    const activeSessionCount = Object.keys(transports).length;
+    const activeSessionCount = transports.size;
 
     logger.info(
       {
@@ -124,23 +131,29 @@ export const createApp = () => {
     );
 
     try {
+      // Guard: batch (array) requests are not yet supported
+      if (Array.isArray(req.body)) {
+        res.status(400).json({ error: "Batch requests are not supported" });
+        return;
+      }
+
       // Handle initialization requests (usually POST without session ID)
       if (req.method === "POST" && !sessionId && isInitializeRequest(req.body)) {
         logger.info({ event: "session.initializing" }, "Initializing new MCP session");
 
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: () => randomUUID(),
-          onsessioninitialized: (sessionId) => {
-            transports[sessionId] = transport;
-            logger.info({ sessionId, event: "session.created" }, "MCP session created");
+          onsessioninitialized: (newSessionId) => {
+            transports.set(newSessionId, transport);
+            logger.info({ sessionId: newSessionId, event: "session.created" }, "MCP session created");
           },
         });
 
-        // Register close handler for session cleanup
+        // Register close handler for session cleanup (S8)
         transport.onclose = () => {
-          const closedSessionId = Object.entries(transports).find(([, t]) => t === transport)?.[0];
+          const closedSessionId = [...transports.entries()].find(([, t]) => t === transport)?.[0];
           if (closedSessionId) {
-            delete transports[closedSessionId];
+            transports.delete(closedSessionId);
             logger.info({ sessionId: closedSessionId, event: "session.destroyed" }, "MCP session destroyed");
           }
         };
@@ -154,12 +167,12 @@ export const createApp = () => {
       }
 
       // Handle existing session requests
-      if (sessionId && transports[sessionId]) {
+      if (sessionId && transports.has(sessionId)) {
         logger.info(
           { sessionId, event: "session.request", method: req.body?.method },
           "MCP session request",
         );
-        const transport = transports[sessionId];
+        const transport = transports.get(sessionId)!;
         await requestContext.run({ sessionId }, () =>
           transport.handleRequest(req, res, req.body)
         );
@@ -178,12 +191,11 @@ export const createApp = () => {
       }
 
       // Handle unknown session
-      if (sessionId && !transports[sessionId]) {
+      if (sessionId && !transports.has(sessionId)) {
         logger.warn(
           {
             sessionId,
             activeSessionCount,
-            activeSessions: Object.keys(transports),
           },
           "Request for unknown session - client should re-initialize",
         );
@@ -229,6 +241,19 @@ export const createApp = () => {
   // Protected MCP endpoints - auth required on ALL routes
   app.post("/mcp", authMiddleware, mcpHandler);
   app.get("/mcp", authMiddleware, mcpHandler);
+
+  // DELETE /mcp -- session termination (S5)
+  app.delete("/mcp", authMiddleware, (req, res) => {
+    const sessionId = req.headers["mcp-session-id"] as string;
+    if (sessionId && transports.has(sessionId)) {
+      const transport = transports.get(sessionId)!;
+      transport.close();
+      transports.delete(sessionId);
+      res.status(200).json({ message: "Session terminated" });
+    } else {
+      res.status(404).json({ error: "Session not found" });
+    }
+  });
 
   return app;
 };

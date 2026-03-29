@@ -9,7 +9,7 @@ import type { RequestHandler } from 'express';
 import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 // Side-effect import to activate MCP SDK's Request.auth type extension
 import '@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js';
-import type { JwtAuthInfo } from './middleware.ts';
+import type { JwtAuthInfo } from './middleware.js';
 
 /**
  * Check if authentication is disabled for development.
@@ -33,16 +33,18 @@ export function isAuthDisabled(): boolean {
 }
 
 /**
- * Development user for local testing.
- *
- * This user is only used when auth is disabled in non-production environments.
+ * Create a fresh development user with current timestamps.
+ * Timestamps are computed per-call to avoid stale iat/exp values.
  */
-export const DEV_USER: JwtAuthInfo = {
-  sub: 'dev-user-local',
-  role: 'authenticated',
-  iat: Math.floor(Date.now() / 1000),
-  exp: Math.floor(Date.now() / 1000) + 86400, // 24 hours from now
-};
+function createDevUser(): JwtAuthInfo {
+  const now = Math.floor(Date.now() / 1000);
+  return {
+    sub: 'dev-user-local',
+    role: 'authenticated',
+    iat: now,
+    exp: now + 86400, // 24 hours from now
+  };
+}
 
 /**
  * Dev mode authentication middleware.
@@ -53,8 +55,10 @@ export const DEV_USER: JwtAuthInfo = {
  * Should only be used when isAuthDisabled() returns true.
  */
 export const devModeAuthMiddleware: RequestHandler = (req, _res, next) => {
+  const devUser = createDevUser();
+
   // Set JWT auth info (backward compatibility)
-  req.jwtAuth = DEV_USER;
+  req.jwtAuth = devUser;
 
   // Set MCP SDK AuthInfo for context propagation to tools
   // In dev mode, use service_role key so Supabase client bypasses RLS
@@ -67,13 +71,13 @@ export const devModeAuthMiddleware: RequestHandler = (req, _res, next) => {
   }
   req.auth = {
     token: devToken,
-    clientId: DEV_USER.sub,
-    scopes: DEV_USER.role ? [DEV_USER.role] : [],
-    expiresAt: DEV_USER.exp,
+    clientId: devUser.sub,
+    scopes: devUser.role ? [devUser.role] : [],
+    expiresAt: devUser.exp,
     extra: {
-      sub: DEV_USER.sub,
-      role: DEV_USER.role,
-      iat: DEV_USER.iat,
+      sub: devUser.sub,
+      role: devUser.role,
+      iat: devUser.iat,
     },
   } satisfies AuthInfo;
 

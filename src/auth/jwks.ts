@@ -8,7 +8,7 @@
  */
 
 import { createRemoteJWKSet } from 'jose';
-import { SUPABASE_JWKS_URL } from './config.ts';
+import { getSupabaseJwksUrl } from './config.js';
 
 /**
  * Lazy-initialized JWKS singleton.
@@ -25,7 +25,7 @@ let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
  */
 export function getJWKS(): ReturnType<typeof createRemoteJWKSet> {
   if (!jwks) {
-    jwks = createRemoteJWKSet(new URL(SUPABASE_JWKS_URL));
+    jwks = createRemoteJWKSet(new URL(getSupabaseJwksUrl()));
   }
   return jwks;
 }

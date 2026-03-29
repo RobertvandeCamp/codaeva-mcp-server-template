@@ -10,17 +10,17 @@ import { jwtVerify, errors } from 'jose';
 import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 // Side-effect import to activate MCP SDK's Request.auth type extension
 import '@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js';
-import { getJWKS } from './jwks.ts';
+import { getJWKS } from './jwks.js';
 import {
-  SUPABASE_ISSUER,
+  getSupabaseIssuer,
   MCP_RESOURCE_IDENTIFIER,
   PROTECTED_RESOURCE_METADATA_PATH,
-} from './config.ts';
+} from './config.js';
 import {
   AuthError,
   buildWWWAuthenticateHeader,
   buildWWWAuthenticateHeaderForMissingToken,
-} from './errors.ts';
+} from './errors.js';
 
 /**
  * Authenticated user information extracted from JWT.
@@ -160,7 +160,7 @@ export const jwtAuthMiddleware: RequestHandler = async (req, res, next) => {
     // Validate token against Supabase JWKS
     // Note: No audience validation - Supabase doesn't set aud claim by default
     const { payload } = await jwtVerify(token, getJWKS(), {
-      issuer: SUPABASE_ISSUER,
+      issuer: getSupabaseIssuer(),
       requiredClaims: ['sub'],
     });
 

@@ -49,6 +49,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # TODO: Migrate to OIDC authentication (aws-actions/configure-aws-credentials
+      # supports role-to-assume with id-token: write permission). Requires IAM
+      # OIDC provider setup in AWS.
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:

@@ -41,7 +41,7 @@ COPY --from=builder /app/package.json /app/package-lock.json ./
 COPY --from=builder /app/dist ./dist
 
 # Production dependencies only
-RUN npm ci --production --prefer-offline && npm cache clean --force
+RUN npm ci --omit=dev --prefer-offline && npm cache clean --force
 
 # Non-root user for security
 USER node

@@ -33,6 +33,8 @@ export function createTextResult(data: unknown): CallToolResult {
   };
 
   // Add structuredContent if data is an object or array (not null/undefined)
+  // Type assertion: MCP SDK types don't include structuredContent yet, but the
+  // protocol supports it. This workaround avoids patching the SDK types.
   if (safeData !== null && typeof safeData === "object") {
     (result as { structuredContent?: unknown }).structuredContent = safeData;
   }

@@ -12,8 +12,8 @@
 import type { RequestHandler } from 'express';
 // Side-effect import to activate MCP SDK's Request.auth type extension
 import '@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js';
-import { mapToMcpAuthInfo } from './middleware.ts';
-import type { JwtAuthInfo } from './middleware.ts';
+import { mapToMcpAuthInfo } from './middleware.js';
+import type { JwtAuthInfo } from './middleware.js';
 import { createClient } from '@supabase/supabase-js';
 import type { Session } from '@supabase/supabase-js';
 import { decodeJwt } from 'jose';

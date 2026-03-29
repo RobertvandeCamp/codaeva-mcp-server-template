@@ -63,10 +63,17 @@ export function loadResource(filename: string): string {
 }
 
 /**
- * Get all available documentation resources
+ * Cached documentation resources. Loaded once on first access.
+ */
+let cachedResources: ResourceInfo[] | null = null;
+
+/**
+ * Get all available documentation resources (cached after first load)
  */
 export function getDocumentationResources(): ResourceInfo[] {
-  return [
+  if (cachedResources) return cachedResources;
+
+  cachedResources = [
     {
       uri: "docs://tools-overview",
       name: "Tools Overview",
@@ -75,10 +82,12 @@ export function getDocumentationResources(): ResourceInfo[] {
       content: loadResource("TOOLS_OVERVIEW.md"),
     },
   ];
+
+  return cachedResources;
 }
 
 /**
- * Get a specific resource by URI
+ * Get a specific resource by URI (uses cached resources)
  */
 export function getResourceByUri(uri: string): ResourceInfo | undefined {
   return getDocumentationResources().find((r) => r.uri === uri);
