@@ -25,7 +25,7 @@ async function main() {
     process.exit(0);
   });
 
-  app.listen(config.PORT, () => {
+  const server = app.listen(config.PORT, () => {
     logger.info(
       {
         environment: config.NODE_ENV,
@@ -35,6 +35,12 @@ async function main() {
       `${config.SERVER_NAME} running on port ${config.PORT}`,
     );
   });
+
+  // App Runner has a hard 120s request timeout. Set Express timeouts just below
+  // to return a clean error instead of an abrupt 503 from the platform.
+  server.timeout = 115_000;
+  server.keepAliveTimeout = 65_000;
+  server.headersTimeout = 120_000;
 }
 
 main().catch((error) => {
