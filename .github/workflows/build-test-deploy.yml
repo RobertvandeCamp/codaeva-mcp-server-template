@@ -82,3 +82,32 @@ jobs:
             ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Deploy to ECS Express
+        uses: amazon-ecs-deploy-express-service@v1
+        with:
+          service: ${{ secrets.ECS_SERVICE_ARN }}
+          task-execution-role: ${{ secrets.ECS_TASK_EXECUTION_ROLE_ARN }}
+          infrastructure-role: ${{ secrets.ECS_INFRASTRUCTURE_ROLE_ARN }}
+          wait-for-stability: true
+
+      - name: Configure ALB idle timeout for SSE streaming
+        run: |
+          aws elbv2 modify-load-balancer-attributes \
+            --load-balancer-arn ${{ secrets.LOAD_BALANCER_ARN }} \
+            --attributes Key=idle_timeout.timeout_seconds,Value=120
+
+      - name: Verify deployment health
+        run: |
+          HEALTH_URL="${{ secrets.HEALTH_CHECK_URL }}"
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed (attempt $i)"
+              exit 0
+            fi
+            echo "Health check attempt $i: HTTP $STATUS (waiting 10s...)"
+            sleep 10
+          done
+          echo "Health check failed after 5 attempts"
+          exit 1
